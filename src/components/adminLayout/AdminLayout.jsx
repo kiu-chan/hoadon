@@ -13,6 +13,7 @@ import {
   FiChevronDown,
   FiBox,
 } from "react-icons/fi";
+import { useAuth } from "../../contexts/AuthContext";
 
 const menuItems = [
   {
@@ -69,10 +70,16 @@ function AdminLayout({ children }) {
   const [openSubMenu, setOpenSubMenu] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
+  const { currentUser, logout } = useAuth();
 
-  // Đồng bộ active menu dựa trên URL hiện tại
+  // Sync submenu open state with current path
   useEffect(() => {
-    const match = menuItems.find((m) => location.pathname === m.path || location.pathname.startsWith(m.path + "/") || (m.path === "/admin" && location.pathname === "/admin"));
+    const match = menuItems.find(
+      (m) =>
+        location.pathname === m.path ||
+        location.pathname.startsWith(m.path + "/") ||
+        (m.path === "/admin" && location.pathname === "/admin")
+    );
     if (match && match.subMenu) {
       setOpenSubMenu(match.id);
     } else {
@@ -84,134 +91,162 @@ function AdminLayout({ children }) {
     setOpenSubMenu((prev) => (prev === item.id ? "" : item.id));
   };
 
-  const handleLogout = () => {
-    // TODO: thêm logic logout nếu cần (clear token, call API, ...)
-    // ví dụ: localStorage.removeItem('token'); navigate('/login');
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      // ignore; still navigate to login
+      console.error("Logout error:", err);
+    }
+    navigate("/login", { replace: true });
+  };
+
+  // close sidebar on small screens when navigating
+  const handleNavClick = () => {
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex">
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-40 h-screen bg-gray-900 text-white transition-all duration-300 ${
+        className={`fixed inset-y-0 left-0 z-40 bg-white border-r transition-all duration-200 flex flex-col ${
           sidebarOpen ? "w-64" : "w-20"
         }`}
       >
-        {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-800">
-          {sidebarOpen && (
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Admin Panel
-            </span>
-          )}
+        {/* Top - Logo & Toggle */}
+        <div className="flex items-center justify-between h-16 px-4 border-b">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold">
+              L
+            </div>
+            {sidebarOpen && <span className="font-semibold text-gray-800">Admin</span>}
+          </div>
           <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-800 transition"
-            aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+            onClick={() => setSidebarOpen((s) => !s)}
+            className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
+            aria-label={sidebarOpen ? "Thu nhỏ sidebar" : "Mở rộng sidebar"}
           >
-            {sidebarOpen ? <FiX size={20} /> : <FiMenu size={20} />}
+            {sidebarOpen ? <FiX size={18} /> : <FiMenu size={18} />}
           </button>
         </div>
 
         {/* Menu */}
-        <nav className="p-4 space-y-2">
-          {menuItems.map((item) => {
-            return (
-              <div key={item.id}>
+        <nav className="p-3 space-y-1 overflow-auto">
+          {menuItems.map((item) => (
+            <div key={item.id}>
+              <div className="flex items-center">
                 <NavLink
                   to={item.path}
-                  end={item.path === "/admin"} // ensure /admin highlights exactly if desired
-                  onClick={() => {
+                  end={item.path === "/admin"}
+                  onClick={(e) => {
+                    // if item has submenu, toggle it (but still allow navigation)
                     if (item.subMenu) {
-                      // nếu có submenu: chỉ toggle submenu, nhưng vẫn điều hướng tới item.path
                       toggleSubMenu(item);
                     }
-                    // NavLink sẽ xử lý điều hướng
+                    handleNavClick();
                   }}
                   className={({ isActive }) =>
-                    `w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                    `group flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-colors ${
                       isActive || openSubMenu === item.id
-                        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                        : "text-gray-300 hover:bg-gray-800"
+                        ? "bg-blue-50 text-blue-600"
+                        : "text-gray-600 hover:bg-gray-50"
                     }`
                   }
                 >
-                  <item.icon size={20} />
-                  {sidebarOpen && (
-                    <>
-                      <span className="flex-1 text-left">{item.label}</span>
-                      {item.subMenu && (
-                        <FiChevronDown
-                          className={`transition-transform ${openSubMenu === item.id ? "rotate-180" : ""}`}
-                        />
-                      )}
-                    </>
+                  <item.icon className="flex-shrink-0" size={18} />
+                  {sidebarOpen && <span className="flex-1 text-sm font-medium">{item.label}</span>}
+                  {sidebarOpen && item.subMenu && (
+                    <FiChevronDown
+                      className={`transition-transform text-gray-400 ${openSubMenu === item.id ? "rotate-180" : ""}`}
+                    />
                   )}
                 </NavLink>
-
-                {/* SubMenu */}
-                {item.subMenu && sidebarOpen && openSubMenu === item.id && (
-                  <div className="mt-2 ml-4 space-y-1">
-                    {item.subMenu.map((sub) => (
-                      <NavLink
-                        key={sub.id}
-                        to={sub.path}
-                        className={({ isActive }) =>
-                          `flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition ${
-                            isActive ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white" : "text-gray-400 hover:text-white hover:bg-gray-800"
-                          }`
-                        }
-                      >
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                        {sub.label}
-                      </NavLink>
-                    ))}
-                  </div>
-                )}
               </div>
-            );
-          })}
+
+              {/* submenu */}
+              {item.subMenu && sidebarOpen && openSubMenu === item.id && (
+                <div className="ml-8 mt-1 space-y-1">
+                  {item.subMenu.map((sub) => (
+                    <NavLink
+                      key={sub.id}
+                      to={sub.path}
+                      onClick={handleNavClick}
+                      className={({ isActive }) =>
+                        `block px-3 py-2 rounded-md text-sm transition-colors ${
+                          isActive ? "text-white bg-blue-600" : "text-gray-600 hover:bg-gray-50"
+                        }`
+                      }
+                    >
+                      {sub.label}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </nav>
 
-        {/* Logout */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
-          <button
-            onClick={handleLogout}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-800 rounded-xl transition ${
-              !sidebarOpen && "justify-center"
-            }`}
-          >
-            <FiLogOut size={20} />
-            {sidebarOpen && <span>Đăng xuất</span>}
-          </button>
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Footer - user + logout */}
+        <div className="p-4 border-t">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+              {currentUser?.name?.charAt(0) || "A"}
+            </div>
+            {sidebarOpen ? (
+              <div className="flex-1">
+                <div className="text-sm font-medium text-gray-800">{currentUser?.name || "Admin"}</div>
+                <div className="text-xs text-gray-500">{currentUser?.email || "admin@example.com"}</div>
+              </div>
+            ) : null}
+            <button
+              onClick={handleLogout}
+              className="ml-2 p-2 rounded-md text-red-600 hover:bg-red-50"
+              title="Đăng xuất"
+              aria-label="Đăng xuất"
+            >
+              <FiLogOut size={18} />
+            </button>
+          </div>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <div
-        className={`transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"}`}
-      >
+      {/* Main area */}
+      <div className={`flex-1 min-h-screen transition-margin duration-200 ${sidebarOpen ? "ml-64" : "ml-20"}`}>
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-white shadow-sm h-16 flex items-center justify-between px-6">
-          <h1 className="text-xl font-semibold text-gray-800">
-            {/* Hiển thị tiêu đề dựa trên route hiện tại */}
-            {menuItems.find((m) => location.pathname === m.path || location.pathname.startsWith(m.path + "/"))?.label ||
-              "Tổng quan"}
-          </h1>
+        <header className="sticky top-0 z-20 bg-white shadow-sm border-b h-16 flex items-center justify-between px-6">
+          <div>
+            <h1 className="text-lg font-semibold text-gray-800">
+              {menuItems.find((m) => location.pathname === m.path || location.pathname.startsWith(m.path + "/"))?.label ||
+                "Tổng quan"}
+            </h1>
+            <div className="text-xs text-gray-500">{location.pathname}</div>
+          </div>
+
           <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-800">Admin</p>
-              <p className="text-xs text-gray-500">admin@example.com</p>
+            <div className="hidden sm:flex sm:flex-col sm:items-end">
+              <div className="text-sm font-medium text-gray-800">{currentUser?.name || "Admin"}</div>
+              <div className="text-xs text-gray-500">{currentUser?.email || ""}</div>
             </div>
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-              A
-            </div>
+            <button
+              onClick={() => {
+                // quick logout from header as well
+                handleLogout();
+              }}
+              className="px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50"
+            >
+              Đăng xuất
+            </button>
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="p-6">{children}</main>
+        {/* Content */}
+        <main className="p-6 bg-gray-50 min-h-[calc(100vh-64px)]">{children}</main>
       </div>
     </div>
   );
