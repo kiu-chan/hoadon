@@ -1,16 +1,17 @@
-import React, { useState } from "react";
-import { 
-  FiHome, 
-  FiPackage, 
-  FiUsers, 
-  FiShoppingCart, 
-  FiPercent, 
+import React, { useEffect, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import {
+  FiHome,
+  FiPackage,
+  FiUsers,
+  FiShoppingCart,
+  FiPercent,
   FiDollarSign,
   FiMenu,
   FiX,
   FiLogOut,
   FiChevronDown,
-  FiBox
+  FiBox,
 } from "react-icons/fi";
 
 const menuItems = [
@@ -65,16 +66,28 @@ const menuItems = [
 
 function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeMenu, setActiveMenu] = useState("dashboard");
   const [openSubMenu, setOpenSubMenu] = useState("");
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const handleMenuClick = (item) => {
-    setActiveMenu(item.id);
-    if (item.subMenu) {
-      setOpenSubMenu(openSubMenu === item.id ? "" : item.id);
+  // Đồng bộ active menu dựa trên URL hiện tại
+  useEffect(() => {
+    const match = menuItems.find((m) => location.pathname === m.path || location.pathname.startsWith(m.path + "/") || (m.path === "/admin" && location.pathname === "/admin"));
+    if (match && match.subMenu) {
+      setOpenSubMenu(match.id);
     } else {
       setOpenSubMenu("");
     }
+  }, [location.pathname]);
+
+  const toggleSubMenu = (item) => {
+    setOpenSubMenu((prev) => (prev === item.id ? "" : item.id));
+  };
+
+  const handleLogout = () => {
+    // TODO: thêm logic logout nếu cần (clear token, call API, ...)
+    // ví dụ: localStorage.removeItem('token'); navigate('/login');
+    navigate("/login");
   };
 
   return (
@@ -95,6 +108,7 @@ function AdminLayout({ children }) {
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 rounded-lg hover:bg-gray-800 transition"
+            aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
           >
             {sidebarOpen ? <FiX size={20} /> : <FiMenu size={20} />}
           </button>
@@ -102,53 +116,68 @@ function AdminLayout({ children }) {
 
         {/* Menu */}
         <nav className="p-4 space-y-2">
-          {menuItems.map((item) => (
-            <div key={item.id}>
-              <button
-                onClick={() => handleMenuClick(item)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${
-                  activeMenu === item.id
-                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                    : "text-gray-300 hover:bg-gray-800"
-                }`}
-              >
-                <item.icon size={20} />
-                {sidebarOpen && (
-                  <>
-                    <span className="flex-1 text-left">{item.label}</span>
-                    {item.subMenu && (
-                      <FiChevronDown
-                        className={`transition-transform ${
-                          openSubMenu === item.id ? "rotate-180" : ""
-                        }`}
-                      />
-                    )}
-                  </>
-                )}
-              </button>
+          {menuItems.map((item) => {
+            return (
+              <div key={item.id}>
+                <NavLink
+                  to={item.path}
+                  end={item.path === "/admin"} // ensure /admin highlights exactly if desired
+                  onClick={() => {
+                    if (item.subMenu) {
+                      // nếu có submenu: chỉ toggle submenu, nhưng vẫn điều hướng tới item.path
+                      toggleSubMenu(item);
+                    }
+                    // NavLink sẽ xử lý điều hướng
+                  }}
+                  className={({ isActive }) =>
+                    `w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                      isActive || openSubMenu === item.id
+                        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+                        : "text-gray-300 hover:bg-gray-800"
+                    }`
+                  }
+                >
+                  <item.icon size={20} />
+                  {sidebarOpen && (
+                    <>
+                      <span className="flex-1 text-left">{item.label}</span>
+                      {item.subMenu && (
+                        <FiChevronDown
+                          className={`transition-transform ${openSubMenu === item.id ? "rotate-180" : ""}`}
+                        />
+                      )}
+                    </>
+                  )}
+                </NavLink>
 
-              {/* SubMenu */}
-              {item.subMenu && sidebarOpen && openSubMenu === item.id && (
-                <div className="mt-2 ml-4 space-y-1">
-                  {item.subMenu.map((sub) => (
-                    <a
-                      key={sub.id}
-                      href={sub.path}
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition"
-                    >
-                      <span className="w-1.5 h-1.5 bg-gray-500 rounded-full"></span>
-                      {sub.label}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                {/* SubMenu */}
+                {item.subMenu && sidebarOpen && openSubMenu === item.id && (
+                  <div className="mt-2 ml-4 space-y-1">
+                    {item.subMenu.map((sub) => (
+                      <NavLink
+                        key={sub.id}
+                        to={sub.path}
+                        className={({ isActive }) =>
+                          `flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition ${
+                            isActive ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white" : "text-gray-400 hover:text-white hover:bg-gray-800"
+                          }`
+                        }
+                      >
+                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                        {sub.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Logout */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
           <button
+            onClick={handleLogout}
             className={`w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-800 rounded-xl transition ${
               !sidebarOpen && "justify-center"
             }`}
@@ -161,14 +190,14 @@ function AdminLayout({ children }) {
 
       {/* Main Content */}
       <div
-        className={`transition-all duration-300 ${
-          sidebarOpen ? "ml-64" : "ml-20"
-        }`}
+        className={`transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"}`}
       >
         {/* Header */}
         <header className="sticky top-0 z-30 bg-white shadow-sm h-16 flex items-center justify-between px-6">
           <h1 className="text-xl font-semibold text-gray-800">
-            {menuItems.find((m) => m.id === activeMenu)?.label || "Tổng quan"}
+            {/* Hiển thị tiêu đề dựa trên route hiện tại */}
+            {menuItems.find((m) => location.pathname === m.path || location.pathname.startsWith(m.path + "/"))?.label ||
+              "Tổng quan"}
           </h1>
           <div className="flex items-center gap-4">
             <div className="text-right">
