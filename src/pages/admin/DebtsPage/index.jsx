@@ -13,6 +13,9 @@ const initialDebts = [
     payments: [
       { id: 1, date: "2025-01-10", amount: 10000000, method: "transfer", invoice: "HĐ001", note: "Thanh toán đợt 1" },
       { id: 2, date: "2025-01-15", amount: 10000000, method: "cash", invoice: "", note: "Tiền mặt" }
+    ],
+    debts: [
+      { id: 1, date: "2025-01-05", amount: 45200000, invoice: "HĐ001", note: "Đơn hàng tháng 1" }
     ]
   },
   { 
@@ -23,7 +26,10 @@ const initialDebts = [
     remaining: 1200000,
     dueDate: "2025-01-30", 
     status: "unpaid",
-    payments: []
+    payments: [],
+    debts: [
+      { id: 1, date: "2025-01-12", amount: 1200000, invoice: "HĐ002", note: "Mua hàng" }
+    ]
   },
   { 
     id: 3, 
@@ -35,11 +41,14 @@ const initialDebts = [
     status: "paid",
     payments: [
       { id: 1, date: "2024-12-15", amount: 30000000, method: "transfer", invoice: "HĐ005", note: "Thanh toán full" }
+    ],
+    debts: [
+      { id: 1, date: "2024-12-01", amount: 30000000, invoice: "HĐ003", note: "Đơn hàng tháng 12" }
     ]
   },
 ];
 
-function DebtsPage() {
+function DebtsOverviewPage() {
   const [debts, setDebts] = useState(initialDebts);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -124,7 +133,10 @@ function DebtsPage() {
       remaining: amount,
       dueDate: formData.dueDate,
       status: amount > 0 ? "unpaid" : "paid",
-      payments: []
+      payments: [],
+      debts: [
+        { id: 1, date: new Date().toISOString().split("T")[0], amount: amount, invoice: "", note: "Công nợ mới" }
+      ]
     };
     setDebts([newDebt, ...debts]);
     setShowModal(false);
@@ -151,7 +163,7 @@ function DebtsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Quản lý công nợ</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Tổng quan công nợ</h1>
           <p className="text-gray-500">Tổng {debts.length} mục công nợ</p>
         </div>
         <div className="flex gap-3">
@@ -533,4 +545,4 @@ function DebtsPage() {
   );
 }
 
-export default DebtsPage;
+export default DebtsOverviewPage;

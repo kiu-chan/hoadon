@@ -63,6 +63,12 @@ const menuItems = [
     label: "Công nợ",
     icon: FiDollarSign,
     path: "/admin/debts",
+    subMenu: [
+      { id: "overview", label: "Tổng quan", path: "/admin/debts" },
+      { id: "debt", label: "Nợ", path: "/admin/debts/debt" },
+      { id: "payment", label: "Trả", path: "/admin/debts/payment" },
+      { id: "history", label: "Lịch sử", path: "/admin/debts/history" },
+    ],
   },
 ];
 
@@ -197,7 +203,7 @@ function AdminLayout({ children }) {
                       <NavLink
                         key={sub.id}
                         to={sub.path}
-                        end={sub.path === "/admin/inventory"}
+                        end={sub.path === "/admin/inventory" || sub.path === "/admin/debts"}
                         onClick={handleNavClick}
                         className={({ isActive }) =>
                           `block px-3 py-2 rounded-md text-sm transition-colors ${

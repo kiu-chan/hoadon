@@ -10,6 +10,9 @@ import ProductsPage from "../pages/admin/ProductsPage/index.jsx";
 import CustomersPage from "../pages/admin/CustomersPage/index.jsx";
 import PromotionsPage from "../pages/admin/PromotionsPage/index.jsx";
 import DebtsPage from "../pages/admin/DebtsPage/index.jsx";
+import AllHistoryPage from "../pages/admin/DebtsPage/AllHistoryPage.jsx";
+import DebtHistoryPage from "../pages/admin/DebtsPage/DebtHistoryPage.jsx";
+import PaymentHistoryPage from "../pages/admin/DebtsPage/PaymentHistoryPage.jsx";
 import DefaultLayout from "../components/Layout/DefaultLayout";
 import AdminLayout from "../components/adminLayout/AdminLayout";
 
@@ -77,6 +80,21 @@ const privateRoutes = [
   {
     path: "/admin/debts",
     component: DebtsPage,
+    layout: AdminLayout,
+  },
+  {
+    path: "/admin/debts/debt",
+    component: DebtHistoryPage,
+    layout: AdminLayout,
+  },
+  {
+    path: "/admin/debts/payment",
+    component: PaymentHistoryPage,
+    layout: AdminLayout,
+  },
+  {
+    path: "/admin/debts/history",
+    component: AllHistoryPage,
     layout: AdminLayout,
   },
 ];
