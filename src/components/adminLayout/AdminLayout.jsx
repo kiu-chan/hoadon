@@ -34,6 +34,7 @@ const menuItems = [
     icon: FiPackage,
     path: "/admin/inventory",
     subMenu: [
+      { id: "overview", label: "Tổng thể", path: "/admin/inventory" },
       { id: "import", label: "Nhập hàng", path: "/admin/inventory/import" },
       { id: "export", label: "Xuất hàng", path: "/admin/inventory/export" },
       { id: "history", label: "Lịch sử", path: "/admin/inventory/history" },
@@ -66,26 +67,43 @@ const menuItems = [
 ];
 
 function AdminLayout({ children }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [openSubMenu, setOpenSubMenu] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('sidebarOpen');
+    return saved ? JSON.parse(saved) : true;
+  });
+  const [openSubMenu, setOpenSubMenu] = useState(() => {
+    const saved = localStorage.getItem('openSubMenu');
+    return saved || "";
+  });
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
 
-  // Sync submenu open state with current path
+  // Save sidebar state to localStorage
   useEffect(() => {
-    const match = menuItems.find(
-      (m) =>
-        location.pathname === m.path ||
-        location.pathname.startsWith(m.path + "/") ||
-        (m.path === "/admin" && location.pathname === "/admin")
-    );
-    if (match && match.subMenu) {
-      setOpenSubMenu(match.id);
-    } else {
-      setOpenSubMenu("");
+    localStorage.setItem('sidebarOpen', JSON.stringify(sidebarOpen));
+  }, [sidebarOpen]);
+
+  // Save submenu state to localStorage
+  useEffect(() => {
+    localStorage.setItem('openSubMenu', openSubMenu);
+  }, [openSubMenu]);
+
+  // Sync submenu open state with current path (only on first load if no saved state)
+  useEffect(() => {
+    const saved = localStorage.getItem('openSubMenu');
+    if (!saved) {
+      const match = menuItems.find(
+        (m) =>
+          location.pathname === m.path ||
+          location.pathname.startsWith(m.path + "/") ||
+          (m.path === "/admin" && location.pathname === "/admin")
+      );
+      if (match && match.subMenu) {
+        setOpenSubMenu(match.id);
+      }
     }
-  }, [location.pathname]);
+  }, []);
 
   const toggleSubMenu = (item) => {
     setOpenSubMenu((prev) => (prev === item.id ? "" : item.id));
@@ -95,9 +113,11 @@ function AdminLayout({ children }) {
     try {
       await logout();
     } catch (err) {
-      // ignore; still navigate to login
       console.error("Logout error:", err);
     }
+    // Clear localStorage on logout
+    localStorage.removeItem('openSubMenu');
+    localStorage.removeItem('sidebarOpen');
     navigate("/login", { replace: true });
   };
 
@@ -135,58 +155,64 @@ function AdminLayout({ children }) {
 
         {/* Menu */}
         <nav className="p-3 space-y-1 overflow-auto">
-          {menuItems.map((item) => (
-            <div key={item.id}>
-              <div className="flex items-center">
-                <NavLink
-                  to={item.path}
-                  end={item.path === "/admin"}
-                  onClick={(e) => {
-                    // if item has submenu, toggle it (but still allow navigation)
-                    if (item.subMenu) {
-                      toggleSubMenu(item);
-                    }
-                    handleNavClick();
-                  }}
-                  className={({ isActive }) =>
-                    `group flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-colors ${
-                      isActive || openSubMenu === item.id
-                        ? "bg-blue-50 text-blue-600"
-                        : "text-gray-600 hover:bg-gray-50"
-                    }`
-                  }
-                >
-                  <item.icon className="flex-shrink-0" size={18} />
-                  {sidebarOpen && <span className="flex-1 text-sm font-medium">{item.label}</span>}
-                  {sidebarOpen && item.subMenu && (
-                    <FiChevronDown
-                      className={`transition-transform text-gray-400 ${openSubMenu === item.id ? "rotate-180" : ""}`}
-                    />
-                  )}
-                </NavLink>
-              </div>
-
-              {/* submenu */}
-              {item.subMenu && sidebarOpen && openSubMenu === item.id && (
-                <div className="ml-8 mt-1 space-y-1">
-                  {item.subMenu.map((sub) => (
-                    <NavLink
-                      key={sub.id}
-                      to={sub.path}
-                      onClick={handleNavClick}
-                      className={({ isActive }) =>
-                        `block px-3 py-2 rounded-md text-sm transition-colors ${
-                          isActive ? "text-white bg-blue-600" : "text-gray-600 hover:bg-gray-50"
-                        }`
+          {menuItems.map((item) => {
+            // Check if any submenu item is active
+            const isSubMenuActive = item.subMenu?.some(sub => location.pathname === sub.path);
+            const isParentActive = location.pathname === item.path && !item.subMenu;
+            
+            return (
+              <div key={item.id}>
+                <div className="flex items-center">
+                  <NavLink
+                    to={item.path}
+                    end={item.path === "/admin"}
+                    onClick={(e) => {
+                      if (item.subMenu) {
+                        toggleSubMenu(item);
                       }
-                    >
-                      {sub.label}
-                    </NavLink>
-                  ))}
+                      handleNavClick();
+                    }}
+                    className={() =>
+                      `group flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-colors ${
+                        isSubMenuActive || isParentActive
+                          ? "bg-blue-50 text-blue-600"
+                          : "text-gray-600 hover:bg-gray-50"
+                      }`
+                    }
+                  >
+                    <item.icon className="flex-shrink-0" size={18} />
+                    {sidebarOpen && <span className="flex-1 text-sm font-medium">{item.label}</span>}
+                    {sidebarOpen && item.subMenu && (
+                      <FiChevronDown
+                        className={`transition-transform text-gray-400 ${openSubMenu === item.id ? "rotate-180" : ""}`}
+                      />
+                    )}
+                  </NavLink>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {/* submenu */}
+                {item.subMenu && sidebarOpen && openSubMenu === item.id && (
+                  <div className="ml-8 mt-1 space-y-1">
+                    {item.subMenu.map((sub) => (
+                      <NavLink
+                        key={sub.id}
+                        to={sub.path}
+                        end={sub.path === "/admin/inventory"}
+                        onClick={handleNavClick}
+                        className={({ isActive }) =>
+                          `block px-3 py-2 rounded-md text-sm transition-colors ${
+                            isActive ? "text-white bg-blue-600" : "text-gray-600 hover:bg-gray-50"
+                          }`
+                        }
+                      >
+                        {sub.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Spacer */}
@@ -218,32 +244,7 @@ function AdminLayout({ children }) {
 
       {/* Main area */}
       <div className={`flex-1 min-h-screen transition-margin duration-200 ${sidebarOpen ? "ml-64" : "ml-20"}`}>
-        {/* Header */}
-        <header className="sticky top-0 z-20 bg-white shadow-sm border-b h-16 flex items-center justify-between px-6">
-          <div>
-            <h1 className="text-lg font-semibold text-gray-800">
-              {menuItems.find((m) => location.pathname === m.path || location.pathname.startsWith(m.path + "/"))?.label ||
-                "Tổng quan"}
-            </h1>
-            <div className="text-xs text-gray-500">{location.pathname}</div>
-          </div>
 
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex sm:flex-col sm:items-end">
-              <div className="text-sm font-medium text-gray-800">{currentUser?.name || "Admin"}</div>
-              <div className="text-xs text-gray-500">{currentUser?.email || ""}</div>
-            </div>
-            <button
-              onClick={() => {
-                // quick logout from header as well
-                handleLogout();
-              }}
-              className="px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50"
-            >
-              Đăng xuất
-            </button>
-          </div>
-        </header>
 
         {/* Content */}
         <main className="p-6 bg-gray-50 min-h-[calc(100vh-64px)]">{children}</main>

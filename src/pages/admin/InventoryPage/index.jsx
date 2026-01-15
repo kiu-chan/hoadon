@@ -3,35 +3,55 @@ import {
   FiDownload,
   FiUpload,
   FiSearch,
-  FiCalendar,
   FiPlus,
   FiX,
   FiFileText,
 } from "react-icons/fi";
 
 const initialHistory = [
-  { id: 1, type: "import", code: "NK001", date: "2025-01-10", supplier: "NCC ABC", products: 5, total: 25000000, note: "Nhập hàng tháng 1" },
-  { id: 2, type: "export", code: "XK001", date: "2025-01-11", customer: "Nguyễn Văn A", products: 3, total: 8500000, note: "Xuất bán" },
-  { id: 3, type: "import", code: "NK002", date: "2025-01-12", supplier: "NCC XYZ", products: 10, total: 45000000, note: "" },
-  { id: 4, type: "export", code: "XK002", date: "2025-01-12", customer: "Công ty B", products: 8, total: 32000000, note: "Đơn hàng lớn" },
-  { id: 5, type: "import", code: "NK003", date: "2025-01-13", supplier: "NCC ABC", products: 2, total: 12000000, note: "Bổ sung hàng" },
+  { 
+    id: 1, 
+    type: "import", 
+    code: "NK001", 
+    date: "2025-01-10", 
+    supplier: "NCC ABC", 
+    products: 5, 
+    total: 25000000, 
+    note: "Nhập hàng tháng 1",
+    priceLevels: [
+      { fromQty: 1, toQty: 10, price: 2000000, discount: 0 },
+      { fromQty: 11, toQty: 50, price: 1800000, discount: 10 }
+    ]
+  },
+  { 
+    id: 2, 
+    type: "export", 
+    code: "XK001", 
+    date: "2025-01-11", 
+    customer: "Nguyễn Văn A", 
+    products: 3, 
+    total: 8500000, 
+    note: "Xuất bán" 
+  },
 ];
 
 const products = [
-  { id: 1, code: "SP001", name: "Sản phẩm A", price: 2500000 },
-  { id: 2, code: "SP002", name: "Sản phẩm B", price: 850000 },
-  { id: 3, code: "SP003", name: "Sản phẩm C", price: 15000000 },
-  { id: 4, code: "SP004", name: "Sản phẩm D", price: 3200000 },
+  { id: 1, code: "SP001", name: "Sản phẩm A", currentPrice: 2500000 },
+  { id: 2, code: "SP002", name: "Sản phẩm B", currentPrice: 850000 },
+  { id: 3, code: "SP003", name: "Sản phẩm C", currentPrice: 15000000 },
+  { id: 4, code: "SP004", name: "Sản phẩm D", currentPrice: 3200000 },
 ];
 
 function InventoryPage() {
-  const [activeTab, setActiveTab] = useState("history");
   const [history, setHistory] = useState(initialHistory);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState("import");
   const [selectedProducts, setSelectedProducts] = useState([]);
+  const [importPriceLevels, setImportPriceLevels] = useState([
+    { fromQty: 1, toQty: null, price: 0, discount: 0 }
+  ]);
   const [formData, setFormData] = useState({
     supplier: "",
     customer: "",
@@ -50,6 +70,7 @@ function InventoryPage() {
   const openModal = (type) => {
     setModalType(type);
     setSelectedProducts([]);
+    setImportPriceLevels([{ fromQty: 1, toQty: null, price: 0, discount: 0 }]);
     setFormData({ supplier: "", customer: "", note: "" });
     setShowModal(true);
   };
@@ -67,7 +88,8 @@ function InventoryPage() {
     if (field === "productId") {
       const product = products.find((p) => p.id === Number(value));
       if (product) {
-        updated[index].price = product.price;
+        updated[index].price = product.currentPrice;
+        updated[index].name = product.name;
       }
     }
     setSelectedProducts(updated);
@@ -75,6 +97,35 @@ function InventoryPage() {
 
   const removeSelectedProduct = (index) => {
     setSelectedProducts(selectedProducts.filter((_, i) => i !== index));
+  };
+
+  const addPriceLevel = () => {
+    const lastLevel = importPriceLevels[importPriceLevels.length - 1];
+    const newFromQty = lastLevel.toQty ? lastLevel.toQty + 1 : lastLevel.fromQty + 10;
+    setImportPriceLevels([
+      ...importPriceLevels,
+      { fromQty: newFromQty, toQty: null, price: 0, discount: 0 }
+    ]);
+  };
+
+  const removePriceLevel = (index) => {
+    if (importPriceLevels.length > 1) {
+      setImportPriceLevels(importPriceLevels.filter((_, i) => i !== index));
+    }
+  };
+
+  const updatePriceLevel = (index, field, value) => {
+    const updated = [...importPriceLevels];
+    updated[index][field] = field === 'fromQty' || field === 'toQty' ? (value === '' ? null : Number(value)) : Number(value);
+    
+    // Tính giá sau chiết khấu
+    if (field === 'price' || field === 'discount') {
+      const basePrice = field === 'price' ? Number(value) : updated[index].price;
+      const discount = field === 'discount' ? Number(value) : updated[index].discount;
+      updated[index].finalPrice = basePrice * (1 - discount / 100);
+    }
+    
+    setImportPriceLevels(updated);
   };
 
   const calculateTotal = () => {
@@ -86,13 +137,17 @@ function InventoryPage() {
     const newEntry = {
       id: Date.now(),
       type: modalType,
-      code: modalType === "import" ? `NK${String(history.filter((h) => h.type === "import").length + 1).padStart(3, "0")}` : `XK${String(history.filter((h) => h.type === "export").length + 1).padStart(3, "0")}`,
+      code: modalType === "import" 
+        ? `NK${String(history.filter((h) => h.type === "import").length + 1).padStart(3, "0")}` 
+        : `XK${String(history.filter((h) => h.type === "export").length + 1).padStart(3, "0")}`,
       date: new Date().toISOString().split("T")[0],
       supplier: modalType === "import" ? formData.supplier : undefined,
       customer: modalType === "export" ? formData.customer : undefined,
       products: selectedProducts.length,
       total: calculateTotal(),
       note: formData.note,
+      priceLevels: modalType === "import" ? importPriceLevels : undefined,
+      productDetails: selectedProducts
     };
     setHistory([newEntry, ...history]);
     setShowModal(false);
@@ -232,8 +287,8 @@ function InventoryPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-800">
                 {modalType === "import" ? "Tạo phiếu nhập hàng" : "Tạo phiếu xuất hàng"}
@@ -260,6 +315,93 @@ function InventoryPage() {
                   required
                 />
               </div>
+
+              {modalType === "import" && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-700">Bảng giá nhập theo số lượng / chiết khấu</label>
+                    <button
+                      type="button"
+                      onClick={addPriceLevel}
+                      className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      <FiPlus /> Thêm mức giá
+                    </button>
+                  </div>
+                  <div className="space-y-3 bg-gray-50 p-4 rounded-xl">
+                    {importPriceLevels.map((level, index) => (
+                      <div key={index} className="flex gap-3 items-start bg-white p-3 rounded-lg">
+                        <div className="flex-1 grid grid-cols-5 gap-3">
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Từ SL</label>
+                            <input
+                              type="number"
+                              value={level.fromQty || ''}
+                              onChange={(e) => updatePriceLevel(index, "fromQty", e.target.value)}
+                              min="1"
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Đến SL</label>
+                            <input
+                              type="number"
+                              value={level.toQty || ''}
+                              onChange={(e) => updatePriceLevel(index, "toQty", e.target.value)}
+                              placeholder="∞"
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Giá nhập</label>
+                            <input
+                              type="number"
+                              value={level.price}
+                              onChange={(e) => updatePriceLevel(index, "price", e.target.value)}
+                              min="0"
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">CK (%)</label>
+                            <input
+                              type="number"
+                              value={level.discount}
+                              onChange={(e) => updatePriceLevel(index, "discount", e.target.value)}
+                              min="0"
+                              max="100"
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Giá cuối</label>
+                            <input
+                              type="text"
+                              value={(level.finalPrice || level.price * (1 - level.discount / 100)).toLocaleString()}
+                              readOnly
+                              className="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-600"
+                            />
+                          </div>
+                        </div>
+                        {importPriceLevels.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removePriceLevel(index)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg mt-5"
+                          >
+                            <FiX />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    * Nhập giá theo số lượng hoặc % chiết khấu. Để trống "Đến SL" nếu không giới hạn.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <div className="flex items-center justify-between mb-2">

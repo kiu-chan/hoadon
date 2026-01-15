@@ -2,6 +2,9 @@ import Home from "../pages/Home/index";
 import LoginPage from "../pages/account/LoginPage";
 import AdminDashboard from "../pages/admin/AdminDashboard/index.jsx";
 import InventoryPage from "../pages/admin/InventoryPage/index.jsx";
+import ExportPage from "../pages/admin/InventoryPage/ExportPage.jsx";
+import ImportPage from "../pages/admin/InventoryPage/ImportPage.jsx";
+import HistoryPage from "../pages/admin/InventoryPage/HistoryPage.jsx";
 import OrdersPage from "../pages/admin/OrdersPage/index.jsx";
 import ProductsPage from "../pages/admin/ProductsPage/index.jsx";
 import CustomersPage from "../pages/admin/CustomersPage/index.jsx";
@@ -34,6 +37,21 @@ const privateRoutes = [
   {
     path: "/admin/inventory",
     component: InventoryPage,
+    layout: AdminLayout,
+  },
+  {
+    path: "/admin/inventory/history",
+    component: HistoryPage,
+    layout: AdminLayout,
+  },
+  {
+    path: "/admin/inventory/import",
+    component: ImportPage,
+    layout: AdminLayout,
+  },
+  {
+    path: "/admin/inventory/export",
+    component: ExportPage,
     layout: AdminLayout,
   },
   {

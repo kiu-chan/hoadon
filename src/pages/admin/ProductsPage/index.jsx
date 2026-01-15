@@ -10,12 +10,37 @@ import {
 } from "react-icons/fi";
 
 const initialProducts = [
-  { id: 1, code: "SP001", name: "Sản phẩm A", category: "Điện tử", price: 2500000, stock: 50, status: "active" },
-  { id: 2, code: "SP002", name: "Sản phẩm B", category: "Thời trang", price: 850000, stock: 120, status: "active" },
-  { id: 3, code: "SP003", name: "Sản phẩm C", category: "Điện tử", price: 15000000, stock: 8, status: "low" },
-  { id: 4, code: "SP004", name: "Sản phẩm D", category: "Gia dụng", price: 3200000, stock: 0, status: "out" },
-  { id: 5, code: "SP005", name: "Sản phẩm E", category: "Thời trang", price: 1200000, stock: 65, status: "active" },
-  { id: 6, code: "SP006", name: "Sản phẩm F", category: "Điện tử", price: 8900000, stock: 25, status: "active" },
+  { 
+    id: 1, 
+    code: "SP001", 
+    name: "Sản phẩm A", 
+    category: "Điện tử", 
+    priceLevels: [
+      { minQty: 1, price: 2500000, stock: 30 },
+      { minQty: 5, price: 2300000, stock: 20 }
+    ],
+    status: "active" 
+  },
+  { 
+    id: 2, 
+    code: "SP002", 
+    name: "Sản phẩm B", 
+    category: "Thời trang", 
+    priceLevels: [
+      { minQty: 1, price: 850000, stock: 120 }
+    ],
+    status: "active" 
+  },
+  { 
+    id: 3, 
+    code: "SP003", 
+    name: "Sản phẩm C", 
+    category: "Điện tử", 
+    priceLevels: [
+      { minQty: 1, price: 15000000, stock: 8 }
+    ],
+    status: "low" 
+  },
 ];
 
 function ProductsPage() {
@@ -23,12 +48,12 @@ function ProductsPage() {
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
+  const [expandedProduct, setExpandedProduct] = useState(null);
   const [formData, setFormData] = useState({
     code: "",
     name: "",
     category: "",
-    price: "",
-    stock: "",
+    priceLevels: [{ minQty: 1, price: 0, stock: 0 }]
   });
 
   const filteredProducts = products.filter(
@@ -37,9 +62,34 @@ function ProductsPage() {
       p.code.toLowerCase().includes(search.toLowerCase())
   );
 
+  const getTotalStock = (priceLevels) => {
+    return priceLevels.reduce((sum, level) => sum + level.stock, 0);
+  };
+
+  const getPriceRange = (priceLevels) => {
+    if (priceLevels.length === 0) return { min: 0, max: 0 };
+    const prices = priceLevels.map(l => l.price);
+    return {
+      min: Math.min(...prices),
+      max: Math.max(...prices)
+    };
+  };
+
+  const getProductStatus = (priceLevels) => {
+    const total = getTotalStock(priceLevels);
+    if (total === 0) return "out";
+    if (total <= 10) return "low";
+    return "active";
+  };
+
   const handleAdd = () => {
     setEditProduct(null);
-    setFormData({ code: "", name: "", category: "", price: "", stock: "" });
+    setFormData({ 
+      code: "", 
+      name: "", 
+      category: "", 
+      priceLevels: [{ minQty: 1, price: 0, stock: 0 }]
+    });
     setShowModal(true);
   };
 
@@ -49,8 +99,7 @@ function ProductsPage() {
       code: product.code,
       name: product.name,
       category: product.category,
-      price: product.price,
-      stock: product.stock,
+      priceLevels: [...product.priceLevels]
     });
     setShowModal(true);
   };
@@ -61,25 +110,40 @@ function ProductsPage() {
     }
   };
 
+  const addPriceLevel = () => {
+    setFormData({
+      ...formData,
+      priceLevels: [...formData.priceLevels, { minQty: 1, price: 0, stock: 0 }]
+    });
+  };
+
+  const removePriceLevel = (index) => {
+    const newLevels = formData.priceLevels.filter((_, i) => i !== index);
+    setFormData({ ...formData, priceLevels: newLevels });
+  };
+
+  const updatePriceLevel = (index, field, value) => {
+    const newLevels = [...formData.priceLevels];
+    newLevels[index][field] = Number(value);
+    setFormData({ ...formData, priceLevels: newLevels });
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    const productData = {
+      ...formData,
+      priceLevels: formData.priceLevels.sort((a, b) => a.minQty - b.minQty),
+      status: getProductStatus(formData.priceLevels)
+    };
+
     if (editProduct) {
       setProducts(
         products.map((p) =>
-          p.id === editProduct.id
-            ? { ...p, ...formData, price: Number(formData.price), stock: Number(formData.stock) }
-            : p
+          p.id === editProduct.id ? { ...p, ...productData } : p
         )
       );
     } else {
-      const newProduct = {
-        id: Date.now(),
-        ...formData,
-        price: Number(formData.price),
-        stock: Number(formData.stock),
-        status: Number(formData.stock) > 10 ? "active" : Number(formData.stock) > 0 ? "low" : "out",
-      };
-      setProducts([...products, newProduct]);
+      setProducts([...products, { id: Date.now(), ...productData }]);
     }
     setShowModal(false);
   };
@@ -149,8 +213,8 @@ function ProductsPage() {
                 <th className="px-6 py-4 font-medium">Mã SP</th>
                 <th className="px-6 py-4 font-medium">Tên sản phẩm</th>
                 <th className="px-6 py-4 font-medium">Danh mục</th>
-                <th className="px-6 py-4 font-medium">Giá bán</th>
-                <th className="px-6 py-4 font-medium">Tồn kho</th>
+                <th className="px-6 py-4 font-medium">Các mức giá</th>
+                <th className="px-6 py-4 font-medium">Tổng tồn</th>
                 <th className="px-6 py-4 font-medium">Trạng thái</th>
                 <th className="px-6 py-4 font-medium">Thao tác</th>
               </tr>
@@ -161,8 +225,49 @@ function ProductsPage() {
                   <td className="px-6 py-4 font-medium text-gray-800">{product.code}</td>
                   <td className="px-6 py-4 text-gray-800">{product.name}</td>
                   <td className="px-6 py-4 text-gray-600">{product.category}</td>
-                  <td className="px-6 py-4 text-gray-800">{product.price.toLocaleString()}đ</td>
-                  <td className="px-6 py-4 text-gray-600">{product.stock}</td>
+                  <td className="px-6 py-4">
+                    {product.priceLevels.length === 1 ? (
+                      <div className="text-sm">
+                        <span className="font-medium text-gray-800">{product.priceLevels[0].price.toLocaleString()}đ</span>
+                        <span className="text-gray-400 text-xs"> ({product.priceLevels[0].stock} sp)</span>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <button
+                          onClick={() => setExpandedProduct(expandedProduct === product.id ? null : product.id)}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition text-sm"
+                        >
+                          <span className="font-medium">
+                            {getPriceRange(product.priceLevels).min.toLocaleString()}đ - {getPriceRange(product.priceLevels).max.toLocaleString()}đ
+                          </span>
+                          <svg 
+                            className={`w-4 h-4 transition-transform ${expandedProduct === product.id ? 'rotate-180' : ''}`} 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {expandedProduct === product.id && (
+                          <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-10 min-w-[240px]">
+                            <div className="space-y-2">
+                              {product.priceLevels.map((level, idx) => (
+                                <div key={idx} className="text-xs pb-2 border-b last:border-0 last:pb-0">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-500">Từ {level.minQty} sp:</span>
+                                    <span className="font-medium text-gray-800">{level.price.toLocaleString()}đ</span>
+                                  </div>
+                                  <div className="text-gray-400 mt-0.5">Tồn kho: {level.stock} sp</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-gray-600 font-medium">{getTotalStock(product.priceLevels)}</td>
                   <td className="px-6 py-4">{getStatusBadge(product.status)}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
@@ -189,8 +294,8 @@ function ProductsPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-800">
                 {editProduct ? "Sửa sản phẩm" : "Thêm sản phẩm"}
@@ -200,16 +305,33 @@ function ProductsPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mã sản phẩm</label>
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mã sản phẩm</label>
+                  <input
+                    type="text"
+                    value={formData.code}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    required
+                  >
+                    <option value="">Chọn danh mục</option>
+                    <option value="Điện tử">Điện tử</option>
+                    <option value="Thời trang">Thời trang</option>
+                    <option value="Gia dụng">Gia dụng</option>
+                  </select>
+                </div>
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tên sản phẩm</label>
                 <input
@@ -220,42 +342,73 @@ function ProductsPage() {
                   required
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                  required
-                >
-                  <option value="">Chọn danh mục</option>
-                  <option value="Điện tử">Điện tử</option>
-                  <option value="Thời trang">Thời trang</option>
-                  <option value="Gia dụng">Gia dụng</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Giá bán</label>
-                  <input
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                    required
-                  />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-gray-700">Các mức giá bán</label>
+                  <button
+                    type="button"
+                    onClick={addPriceLevel}
+                    className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                  >
+                    <FiPlus /> Thêm mức giá
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tồn kho</label>
-                  <input
-                    type="number"
-                    value={formData.stock}
-                    onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                    required
-                  />
+                <div className="space-y-3 bg-gray-50 p-4 rounded-xl">
+                  {formData.priceLevels.map((level, index) => (
+                    <div key={index} className="flex gap-3 items-start bg-white p-3 rounded-lg">
+                      <div className="flex-1 grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Từ SL</label>
+                          <input
+                            type="number"
+                            value={level.minQty}
+                            onChange={(e) => updatePriceLevel(index, "minQty", e.target.value)}
+                            min="1"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Giá bán</label>
+                          <input
+                            type="number"
+                            value={level.price}
+                            onChange={(e) => updatePriceLevel(index, "price", e.target.value)}
+                            min="0"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Tồn kho</label>
+                          <input
+                            type="number"
+                            value={level.stock}
+                            onChange={(e) => updatePriceLevel(index, "stock", e.target.value)}
+                            min="0"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                            required
+                          />
+                        </div>
+                      </div>
+                      {formData.priceLevels.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removePriceLevel(index)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg mt-5"
+                        >
+                          <FiX />
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  * Mức giá sẽ được áp dụng theo số lượng mua. VD: Từ 1-4 sp: giá A, từ 5 sp trở lên: giá B
+                </p>
               </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
